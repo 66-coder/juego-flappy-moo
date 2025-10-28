@@ -21,8 +21,8 @@ fuente_pequena = pygame.font.Font(None, 25)
 
 # --- Colores ---
 BLANCO = (255, 255, 255)
-NEGRO = (0, 0, 0)
-CELESTE = (135, 206, 235)
+BLANCO_HUESO = (242, 240, 235)
+CELESTE = (16, 44, 84)
 VERDE = (0, 200, 0)
 
 # --- Variables del Juego ---
@@ -34,7 +34,7 @@ FRECUENCIA_TUBERIA = 1500 # Tiempo en milisegundos para que aparezca una nueva t
 ultimo_tiempo_tuberia = pygame.time.get_ticks() - FRECUENCIA_TUBERIA
 
 puntuacion = 0
-juego_terminado = False
+estado_juego = "INICIO"
 corriendo = True
 
 # --- Clases del Juego ---
@@ -42,10 +42,12 @@ corriendo = True
 class Vaca(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        # Se crea una superficie simple como vaca.
-        # Puedes reemplazar esto con una imagen cargada con: pygame.image.load('tu_vaca.png').convert_alpha()
-        self.image = pygame.Surface((40, 30))
-        self.image.fill(BLANCO) # La vaca será un rectángulo blanco
+        vaca_original = pygame.image.load('imagenes/vaca.png').convert_alpha()
+        
+        # El rectángulo original era (40, 30). Puedes ajustar (50, 40) si lo ves muy pequeño o grande.
+        self.image = pygame.transform.scale(vaca_original, (50, 40))
+        
+        # 3. Obtener el rectángulo de la imagen escalada y centrarlo
         self.rect = self.image.get_rect(center=(100, ALTO_PANTALLA // 2))
         self.velocidad = 0
 
@@ -101,8 +103,7 @@ def dibujar_texto(texto, fuente, color, superficie, x, y):
 def reiniciar_juego():
     global puntuacion, juego_terminado, ultimo_tiempo_tuberia
     # Reiniciar todas las variables del juego a su estado inicial
-    puntuacion = 0
-    juego_terminado = False
+    puntuacion = 0  
     ultimo_tiempo_tuberia = pygame.time.get_ticks() - FRECUENCIA_TUBERIA
     
     # Limpiar todas las tuberías de la pantalla
@@ -114,29 +115,81 @@ def reiniciar_juego():
     vaca.velocidad = 0
     todos_los_sprites.add(vaca)
 
+# --- Creación del Fondo de Estrellas ---
+NUMERO_ESTRELLAS = 100
+estrellas = []
+
+for _ in range(NUMERO_ESTRELLAS):
+    # Posición inicial aleatoria
+    x = random.randint(0, ANCHO_PANTALLA)
+    y = random.randint(0, ALTO_PANTALLA)
+    
+    # Velocidad aleatoria (más lenta que las tuberías para el efecto parallax)
+    # Un valor entre 0.2 y 1.5
+    velocidad_estrella = random.uniform(0.2, 1.5)
+    
+    # Radio (tamaño) de la estrella
+    radio_estrella = random.randint(1, 2)
+    
+    # Guardamos [x, y, velocidad, radio]
+    estrellas.append([x, y, velocidad_estrella, radio_estrella])
 
 # --- Bucle Principal del Juego ---
 while corriendo:
-    # --- Manejo de Eventos (input del usuario) ---
+   # --- Manejo de Eventos (input del usuario) ---
     for evento in pygame.event.get():
         # Si el usuario cierra la ventana
         if evento.type == pygame.QUIT:
             corriendo = False
         # Si el usuario presiona una tecla
         if evento.type == pygame.KEYDOWN:
-            # Si la tecla es ESPACIO y el juego no ha terminado, la vaca salta
-            if evento.key == pygame.K_SPACE and not juego_terminado:
-                vaca.saltar()
-            # Si la tecla es ESPACIO y el juego SÍ ha terminado, se reinicia
-            if evento.key == pygame.K_SPACE and juego_terminado:
-                reiniciar_juego()
+            # Si la tecla es ESPACIO
+            if evento.key == pygame.K_SPACE:
+                if estado_juego == "INICIO":
+                    # Si estamos en el inicio, empezamos a JUGAR
+                    estado_juego = "JUGANDO"
+                    reiniciar_juego() # Preparamos el juego
+                
+                elif estado_juego == "JUGANDO":
+                    # Si estamos jugando, la vaca salta
+                    vaca.saltar()
+                    
+                elif estado_juego == "FIN":
+                    # Si perdimos, volvemos al INICIO
+                    estado_juego = "INICIO"
+                    reiniciar_juego() # Limpiamos la pantalla
 
     # --- Lógica del Juego (solo si no ha terminado) ---
-    if not juego_terminado:
-        # Actualizar la posición de todos los sprites (vaca y tuberías)
+   # --- Lógica y Dibujo por Estado ---
+
+    # Primero, dibujamos el fondo y las estrellas (que se ven en todos los estados)
+    pantalla.fill(CELESTE)
+    for x, y, velocidad, radio in estrellas:
+        pygame.draw.circle(pantalla, BLANCO_HUESO, (int(x), int(y)), radio)
+
+    
+    if estado_juego == "INICIO":
+        # --- Pantalla de Inicio ---
+        # No hay lógica, solo dibujamos texto y la vaca quieta
+        dibujar_texto("Flappy Moo", fuente, BLANCO, pantalla, ANCHO_PANTALLA // 2, 150)
+        dibujar_texto("Presiona ESPACIO", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, 250)
+        dibujar_texto("para empezar", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, 280)
+        
+        # Dibuja la vaca en su posición inicial
+        todos_los_sprites.draw(pantalla) 
+
+    elif estado_juego == "JUGANDO":
+        # --- Lógica del Juego ---
         todos_los_sprites.update()
         
-        # Generar nuevas tuberías periódicamente
+        # Mover las estrellas
+        for i in range(len(estrellas)):
+            estrellas[i][0] -= estrellas[i][2]
+            if estrellas[i][0] < 0:
+                estrellas[i][0] = ANCHO_PANTALLA
+                estrellas[i][1] = random.randint(0, ALTO_PANTALLA)
+        
+        # Generar nuevas tuberías
         tiempo_actual = pygame.time.get_ticks()
         if tiempo_actual - ultimo_tiempo_tuberia > FRECUENCIA_TUBERIA:
             altura_tuberia = random.randint(200, 400)
@@ -146,37 +199,37 @@ while corriendo:
             todos_los_sprites.add(tuberia_arriba, tuberia_abajo)
             ultimo_tiempo_tuberia = tiempo_actual
             
-        # Comprobar si la vaca ha pasado una tubería para sumar puntos
+        # Comprobar si la vaca ha pasado una tubería
         for tuberia in tuberias:
             if not tuberia.pasada and tuberia.rect.centerx < vaca.rect.left:
-                # Se comprueba que sea la tubería de abajo para contar el punto una sola vez por par
                 if tuberia.rect.top > ALTO_PANTALLA / 2: 
                     tuberia.pasada = True
                     puntuacion += 1
         
         # --- Detección de Colisiones ---
-        # Colisión con el suelo
-        if vaca.rect.bottom >= ALTO_PANTALLA:
-            juego_terminado = True
+        if vaca.rect.bottom >= ALTO_PANTALLA or pygame.sprite.spritecollide(vaca, tuberias, False):
+            estado_juego = "FIN" # ¡Cambiamos el estado a FIN!
 
-        # Colisión con las tuberías
-        if pygame.sprite.spritecollide(vaca, tuberias, False):
-            juego_terminado = True
-
-    # --- Dibujar en la Pantalla ---
-    pantalla.fill(CELESTE) # Color de fondo
-
-    # Dibuja todos los sprites (la vaca y las tuberías)
-    todos_los_sprites.draw(pantalla)
-
-    # Mostrar la puntuación en la parte superior
-    dibujar_texto(str(puntuacion), fuente, BLANCO, pantalla, ANCHO_PANTALLA // 2, 50)
+        # --- Dibujar en Pantalla (Jugando) ---
+        todos_los_sprites.draw(pantalla)
+        dibujar_texto(str(puntuacion), fuente, BLANCO, pantalla, ANCHO_PANTALLA // 2, 50)
     
-    # --- Pantalla de Juego Terminado ---
-    if juego_terminado:
-        dibujar_texto("¡Has Perdido!", fuente, NEGRO, pantalla, ANCHO_PANTALLA // 2, ALTO_PANTALLA // 2 - 50)
-        dibujar_texto("Presiona ESPACIO para reiniciar", fuente_pequena, NEGRO, pantalla, ANCHO_PANTALLA // 2, ALTO_PANTALLA // 2)
+    elif estado_juego == "FIN":
+        # --- Pantalla de Juego Terminado ---
+        # No hay lógica, solo dibujamos la pantalla final
+        
+        # Dibuja la escena final (vaca caída, tuberías)
+        todos_los_sprites.draw(pantalla) 
+        
+        # Dibuja el texto de "Game Over"
+        dibujar_texto("¡Has Perdido!", fuente, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, ALTO_PANTALLA // 2 - 50)
+        dibujar_texto(f"Puntuación: {puntuacion}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, ALTO_PANTALLA // 2)
+        dibujar_texto("Presiona ESPACIO para reiniciar", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, ALTO_PANTALLA // 2 + 50)
 
+    # --- Actualizar la Pantalla (esto está fuera del if/elif) ---
+    pygame.display.flip()
+   
+   
     # --- Actualizar la Pantalla ---
     pygame.display.flip()
 
