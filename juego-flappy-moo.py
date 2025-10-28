@@ -4,7 +4,9 @@ import sys
 
 # --- Inicialización de Pygame ---
 pygame.init()
-
+pygame.mixer.init() # Inicializa el mezclador de sonido
+sonido_salto = pygame.mixer.Sound('sonidos/salto.mp3')
+sonido_punto = pygame.mixer.Sound('sonidos/punto.mp3')
 # --- Configuración de la Pantalla ---
 ANCHO_PANTALLA = 400
 ALTO_PANTALLA = 600
@@ -44,10 +46,12 @@ class Vaca(pygame.sprite.Sprite):
         super().__init__()
         vaca_original = pygame.image.load('imagenes/vaca.png').convert_alpha()
         
-        # El rectángulo original era (40, 30). Puedes ajustar (50, 40) si lo ves muy pequeño o grande.
-        self.image = pygame.transform.scale(vaca_original, (50, 40))
+        # 1. Guarda la imagen escalada como "original"
+        self.original_image = pygame.transform.scale(vaca_original, (50, 40))
         
-        # 3. Obtener el rectángulo de la imagen escalada y centrarlo
+        # 2. 'self.image' será la que rote
+        self.image = self.original_image
+        
         self.rect = self.image.get_rect(center=(100, ALTO_PANTALLA // 2))
         self.velocidad = 0
 
@@ -55,6 +59,22 @@ class Vaca(pygame.sprite.Sprite):
         # Aplicar la gravedad para que la vaca caiga
         self.velocidad += GRAVEDAD
         self.rect.y += self.velocidad
+
+# --- AÑADIR ESTE BLOQUE DE ROTACIÓN ---
+        # Rotamos la vaca basado en su velocidad vertical.
+        # (-self.velocidad * 3) la inclina hacia arriba al subir (vel negativa)
+        # y hacia abajo al caer (vel positiva).
+        # Usamos min() y max() para poner un tope (que no gire 360 grados)
+        angulo = max(-90, min(30, -self.velocidad * 3))
+        
+        # Rotamos la imagen *original* (esto es clave para no perder calidad)
+        self.image = pygame.transform.rotate(self.original_image, angulo)
+        
+        # Pygame cambia el centro del 'rect' al rotar.
+        # Lo recentramos en su posición anterior para que no "salte" de lugar.
+        centro_original = self.rect.center
+        self.rect = self.image.get_rect(center=centro_original)
+        # --- FIN DEL BLOQUE DE ROTACIÓN ---
 
         # Evitar que la vaca se salga por la parte superior de la pantalla
         if self.rect.top < 0:
@@ -70,8 +90,14 @@ class Tuberia(pygame.sprite.Sprite):
         super().__init__()
         # Se crea la superficie para la tubería
         self.image = pygame.Surface((60, 400))
-        self.image.fill(VERDE)
-        
+       
+        VERDE_TUBERIA = (34, 179, 78) # Un verde más brillante
+        BORDE_TUBERIA = (24, 128, 56) # Un verde oscuro para el borde
+
+        self.image.fill(VERDE_TUBERIA)
+        # Dibujamos un borde de 3 píxeles de ancho
+        pygame.draw.rect(self.image, BORDE_TUBERIA, self.image.get_rect(), 3)
+
         if posicion == 1: # Tubería de arriba
             self.image = pygame.transform.flip(self.image, False, True) # Se invierte la imagen
             self.rect = self.image.get_rect(midbottom=(x, y - HUECO_TUBERIA // 2))
@@ -152,7 +178,8 @@ while corriendo:
                 
                 elif estado_juego == "JUGANDO":
                     # Si estamos jugando, la vaca salta
-                    vaca.saltar()
+                    vaca.saltar() 
+                    sonido_salto.play()
                     
                 elif estado_juego == "FIN":
                     # Si perdimos, volvemos al INICIO
