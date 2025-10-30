@@ -5,7 +5,6 @@ import sys
 # --- Inicialización de Pygame ---
 pygame.init()
 pygame.mixer.init() # Inicializa el mezclador de sonido
-sonido_salto = pygame.mixer.Sound('sonidos/salto.mp3')
 sonido_punto = pygame.mixer.Sound('sonidos/punto.mp3')
 # --- Configuración de la Pantalla ---
 ANCHO_PANTALLA = 400
@@ -53,6 +52,7 @@ class Vaca(pygame.sprite.Sprite):
         self.image = self.original_image
         
         self.rect = self.image.get_rect(center=(100, ALTO_PANTALLA // 2))
+        self.radius = 14 # Un círculo de 18 píxeles de radio
         self.velocidad = 0
 
     def update(self):
@@ -179,7 +179,6 @@ while corriendo:
                 elif estado_juego == "JUGANDO":
                     # Si estamos jugando, la vaca salta
                     vaca.saltar() 
-                    sonido_salto.play()
                     
                 elif estado_juego == "FIN":
                     # Si perdimos, volvemos al INICIO
@@ -234,8 +233,9 @@ while corriendo:
                     puntuacion += 1
         
         # --- Detección de Colisiones ---
-        if vaca.rect.bottom >= ALTO_PANTALLA or pygame.sprite.spritecollide(vaca, tuberias, False):
-            estado_juego = "FIN" # ¡Cambiamos el estado a FIN!
+        colision_tuberias = pygame.sprite.spritecollide(vaca, tuberias, False, pygame.sprite.collide_circle)
+        if vaca.rect.bottom >= ALTO_PANTALLA or colision_tuberias:
+            estado_juego = "FIN"
 
         # --- Dibujar en Pantalla (Jugando) ---
         todos_los_sprites.draw(pantalla)
