@@ -59,6 +59,7 @@ FRECUENCIA_TUBERIA = BASE_FRECUENCIA_TUBERIA
 
 ultimo_tiempo_tuberia = pygame.time.get_ticks() - FRECUENCIA_TUBERIA
 
+spawn_milk_next = False
 puntuacion = 0
 estado_juego = "INICIO"
 corriendo = True
@@ -131,6 +132,23 @@ class Tuberia(pygame.sprite.Sprite):
         if self.rect.right < 0:
             self.kill() 
 
+
+class VasoDeLeche(pygame.sprite.Sprite):
+    def __init__(self, center_x, center_y):
+        super().__init__()
+        # Cargamos la imagen (asegúrate que está en 'imagenes/')
+        self.image = pygame.image.load('imagenes/vaso_de_leche.png').convert_alpha()
+        self.image = pygame.transform.scale(self.image, (40, 40)) # Un poco más pequeño
+        self.rect = self.image.get_rect(center=(center_x, center_y))
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def update(self):
+        # El vaso se mueve junto con las tuberías
+        self.rect.x -= VELOCIDAD_TUBERIA
+        # Se destruye si sale de la pantalla
+        if self.rect.right < 0:
+            self.kill()
+
 # ELIMINADA: class FondoMovil(pygame.sprite.Sprite):
 
 # --- 5. Funciones Auxiliares ---
@@ -156,15 +174,17 @@ def manejar_high_score():
 
 
 def reiniciar_juego(): 
-    global puntuacion, ultimo_tiempo_tuberia, ha_guardado_record, VELOCIDAD_TUBERIA
+    global puntuacion, ultimo_tiempo_tuberia, ha_guardado_record, VELOCIDAD_TUBERIA, spawn_milk_next
     
     puntuacion = 0  
     ha_guardado_record = False
+    spawn_milk_next = False
     ultimo_tiempo_tuberia = pygame.time.get_ticks() - FRECUENCIA_TUBERIA
 
     tuberias.empty()
+    
     todos_los_sprites.empty()
-
+    vasos_de_leche.empty()      
     vaca.rect.center = (100, ALTO_PANTALLA // 2)
     vaca.velocidad = 0
     todos_los_sprites.add(vaca) 
@@ -172,6 +192,7 @@ def reiniciar_juego():
 # --- 6. Creación de Sprites Iniciales ---
 todos_los_sprites = pygame.sprite.Group()
 tuberias = pygame.sprite.Group()
+vasos_de_leche = pygame.sprite.Group()
 
 vaca = Vaca()
 # ELIMINADAS: suelo_movil y techo_movil
@@ -228,7 +249,8 @@ while corriendo:
     elif estado_juego == "JUGANDO":
         # Lógica de actualización
         todos_los_sprites.update()
-        tuberias.update() # Las tuberías no están en todos_los_sprites, se actualizan aparte.
+        tuberias.update()
+        vasos_de_leche.update() # Las tuberías no están en todos_los_sprites, se actualizan aparte.
         
         # Mover estrellas
         for i in range(len(estrellas)):
@@ -241,6 +263,15 @@ while corriendo:
         tiempo_actual = pygame.time.get_ticks()
         if tiempo_actual - ultimo_tiempo_tuberia > FRECUENCIA_TUBERIA:
             altura_tuberia = random.randint(200, 400)
+
+            # --- NUEVA LÓGICA: Spawn Vaso ---
+            if spawn_milk_next:
+                # Creamos el vaso en el centro del hueco
+                nuevo_vaso = VasoDeLeche(ANCHO_PANTALLA + 50, altura_tuberia)
+                vasos_de_leche.add(nuevo_vaso)
+                spawn_milk_next = False # Reseteamos la bandera
+            # --- FIN NUEVA LÓGICA ---
+
             tuberia_arriba = Tuberia(ANCHO_PANTALLA + 50, altura_tuberia, 1)
             tuberia_abajo = Tuberia(ANCHO_PANTALLA + 50, altura_tuberia, 0)
             tuberias.add(tuberia_arriba, tuberia_abajo)
@@ -254,20 +285,26 @@ while corriendo:
                     puntuacion += 1
                     sonido_punto.play()
 
-                    # --- INICIO LÓGICA DE DIFICULTAD PROGRESIVA ---
-                    # Comprueba si la puntuación es un múltiplo de 5 (y no es 0)
-                    if puntuacion > 0 and puntuacion % PUNTOS_PARA_AUMENTAR == 0:
-                        
-                        # Aumenta la velocidad de las tuberías
-                        VELOCIDAD_TUBERIA += INCREMENTO_VELOCIDAD
-                        
-                        # Aumenta la frecuencia (disminuyendo el tiempo)
-                        if FRECUENCIA_TUBERIA > LIMITE_FRECUENCIA:
-                            FRECUENCIA_TUBERIA -= DECREMENTO_FRECUENCIA
-                        
-                        # Opcional: Imprime en la consola para ver el cambio
-                        # print(f"¡DIFICULTAD AUMENTADA! Vel: {VELOCIDAD_TUBERIA:.1f}, Freq: {FRECUENCIA_TUBERIA}")
-                    # --- FIN LÓGICA DE DIFICULTAD ---
+                    # --- NUEVA LÓGICA: Preparar Vaso ---
+                    # Si la puntuación es 4, 9, 14, etc...
+                    if puntuacion % PUNTOS_PARA_AUMENTAR == (PUNTOS_PARA_AUMENTAR - 1): 
+                        spawn_milk_next = True
+                    # --- FIN NUEVA LÓGICA ---
+
+
+        # --- Detección de Colisión con Leche ---
+        colisiones_leche = pygame.sprite.spritecollide(vaca, vasos_de_leche, True, pygame.sprite.collide_mask)
+        if colisiones_leche:
+            # ¡El jugador cogió la leche! Aumentar Dificultad
+            VELOCIDAD_TUBERIA += INCREMENTO_VELOCIDAD
+            
+            if FRECUENCIA_TUBERIA > LIMITE_FRECUENCIA:
+                FRECUENCIA_TUBERIA -= DECREMENTO_FRECUENCIA
+            
+            # Opcional: Añadir un sonido de "power-up"
+            # sonido_powerup.play()
+            # print("¡LECHE! Dificultad aumentada.")
+        # --- Fin Colisión Leche ---
 
         # Detección de Colisiones
         colision_tuberias = pygame.sprite.spritecollide(vaca, tuberias, False, pygame.sprite.collide_mask)
@@ -279,6 +316,7 @@ while corriendo:
 
         # --- DIBUJADO ---
         tuberias.draw(pantalla) # Dibuja las tuberías primero
+        vasos_de_leche.draw(pantalla)
         todos_los_sprites.draw(pantalla) # Dibuja la vaca encima
         dibujar_texto(str(puntuacion), fuente, BLANCO, pantalla, ANCHO_PANTALLA // 2, 50, (0,0,0))
 
