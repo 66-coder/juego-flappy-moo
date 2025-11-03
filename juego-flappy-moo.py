@@ -40,9 +40,23 @@ CELESTE = (16, 44, 84)
 # --- 2. Variables de Juego ---
 GRAVEDAD = 0.5
 VACA_SALTO = -8
-VELOCIDAD_TUBERIA = 3
 HUECO_TUBERIA = 150
-FRECUENCIA_TUBERIA = 1500
+
+# --- Variables de Dificultad ---
+# Valores base para reiniciar
+BASE_VELOCIDAD_TUBERIA = 3
+BASE_FRECUENCIA_TUBERIA = 1500
+# Límites y modificadores
+LIMITE_FRECUENCIA = 1000 # La frecuencia no bajará de esto (más rápido)
+INCREMENTO_VELOCIDAD = 0.2  # Cuánto más rápido irá la tubería
+DECREMENTO_FRECUENCIA = 75 # Cuánto más rápido aparecerán las tuberías
+PUNTOS_PARA_AUMENTAR = 5   # Aumentar dificultad cada 5 puntos
+
+# Variables mutables del juego (las que cambiarán)
+VELOCIDAD_TUBERIA = BASE_VELOCIDAD_TUBERIA
+FRECUENCIA_TUBERIA = BASE_FRECUENCIA_TUBERIA
+# --- Fin Variables de Dificultad ---
+
 ultimo_tiempo_tuberia = pygame.time.get_ticks() - FRECUENCIA_TUBERIA
 
 puntuacion = 0
@@ -142,7 +156,7 @@ def manejar_high_score():
 
 
 def reiniciar_juego(): 
-    global puntuacion, ultimo_tiempo_tuberia, ha_guardado_record
+    global puntuacion, ultimo_tiempo_tuberia, ha_guardado_record, VELOCIDAD_TUBERIA
     
     puntuacion = 0  
     ha_guardado_record = False
@@ -153,7 +167,7 @@ def reiniciar_juego():
 
     vaca.rect.center = (100, ALTO_PANTALLA // 2)
     vaca.velocidad = 0
-    todos_los_sprites.add(vaca) # SOLO AÑADIMOS LA VACA
+    todos_los_sprites.add(vaca) 
     
 # --- 6. Creación de Sprites Iniciales ---
 todos_los_sprites = pygame.sprite.Group()
@@ -235,10 +249,25 @@ while corriendo:
         # Puntuación
         for tuberia in tuberias:
             if not tuberia.pasada and tuberia.rect.centerx < vaca.rect.centerx:
-                if tuberia.rect.top > ALTO_PANTALLA / 2: 
+                if tuberia.rect.top > 0: 
                     tuberia.pasada = True
                     puntuacion += 1
                     sonido_punto.play()
+
+                    # --- INICIO LÓGICA DE DIFICULTAD PROGRESIVA ---
+                    # Comprueba si la puntuación es un múltiplo de 5 (y no es 0)
+                    if puntuacion > 0 and puntuacion % PUNTOS_PARA_AUMENTAR == 0:
+                        
+                        # Aumenta la velocidad de las tuberías
+                        VELOCIDAD_TUBERIA += INCREMENTO_VELOCIDAD
+                        
+                        # Aumenta la frecuencia (disminuyendo el tiempo)
+                        if FRECUENCIA_TUBERIA > LIMITE_FRECUENCIA:
+                            FRECUENCIA_TUBERIA -= DECREMENTO_FRECUENCIA
+                        
+                        # Opcional: Imprime en la consola para ver el cambio
+                        # print(f"¡DIFICULTAD AUMENTADA! Vel: {VELOCIDAD_TUBERIA:.1f}, Freq: {FRECUENCIA_TUBERIA}")
+                    # --- FIN LÓGICA DE DIFICULTAD ---
 
         # Detección de Colisiones
         colision_tuberias = pygame.sprite.spritecollide(vaca, tuberias, False, pygame.sprite.collide_mask)
