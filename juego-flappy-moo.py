@@ -13,6 +13,18 @@ ALTO_PANTALLA = 600
 pantalla = pygame.display.set_mode((ANCHO_PANTALLA, ALTO_PANTALLA))
 pygame.display.set_caption("Flappy Moo")
 
+# --- CÓDIGO PARA CAMBIAR EL ICONO ---
+try:
+    # Carga la imagen del icono (asegúrate de que la ruta sea correcta)
+    icono_img = pygame.image.load('imagenes/Flappy Moo.png') 
+    # Establece la imagen como el icono de la ventana
+    pygame.display.set_icon(icono_img)
+except pygame.error as e:
+    # Es buena práctica manejar el error si la imagen no se encuentra
+    print(f"Error al cargar el icono: {e}") 
+# -------------------------------------
+
+
 reloj = pygame.time.Clock()
 FPS = 60
 
