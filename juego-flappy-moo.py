@@ -30,6 +30,8 @@ FPS = 60
 
 fuente = pygame.font.Font(None, 40)
 fuente_pequena = pygame.font.Font(None, 25)
+icono_leche_pequeno = pygame.image.load('imagenes/vaso_de_leche.png').convert_alpha()
+icono_leche_pequeno = pygame.transform.scale(icono_leche_pequeno, (20, 20))
 
 BLANCO = (255, 255, 255)
 BLANCO_HUESO = (242, 240, 235)
@@ -61,6 +63,7 @@ ultimo_tiempo_tuberia = pygame.time.get_ticks() - FRECUENCIA_TUBERIA
 
 spawn_milk_next = False
 puntuacion = 0
+puntuacion_leche = 0
 estado_juego = "INICIO"
 corriendo = True
 
@@ -176,7 +179,8 @@ def manejar_high_score():
 def reiniciar_juego(): 
     global puntuacion, ultimo_tiempo_tuberia, ha_guardado_record, VELOCIDAD_TUBERIA, spawn_milk_next
     
-    puntuacion = 0  
+    puntuacion = 0
+    puntuacion_leche = 0 
     ha_guardado_record = False
     spawn_milk_next = False
     ultimo_tiempo_tuberia = pygame.time.get_ticks() - FRECUENCIA_TUBERIA
@@ -264,10 +268,18 @@ while corriendo:
         if tiempo_actual - ultimo_tiempo_tuberia > FRECUENCIA_TUBERIA:
             altura_tuberia = random.randint(200, 400)
 
-            # --- NUEVA LÓGICA: Spawn Vaso ---
+            # --- NUEVA LÓGICA: Spawn Vaso (Con Riesgo) ---
             if spawn_milk_next:
-                # Creamos el vaso en el centro del hueco
-                nuevo_vaso = VasoDeLeche(ANCHO_PANTALLA + 50, altura_tuberia)
+                
+                # El vaso ya no aparece en el centro (altura_tuberia).
+                # Ahora aparece cerca de la tubería de arriba o la de abajo.
+                # El hueco mide 150 (HUECO_TUBERIA), así que 75 es el borde.
+                # Lo pondremos a 40px del centro, ¡cerca del peligro!
+                offset_dificil = 40 
+                posicion_y_vaso = altura_tuberia + random.choice([-offset_dificil, offset_dificil])
+
+                # Creamos el vaso en la nueva posición de riesgo
+                nuevo_vaso = VasoDeLeche(ANCHO_PANTALLA + 50, posicion_y_vaso)
                 vasos_de_leche.add(nuevo_vaso)
                 spawn_milk_next = False # Reseteamos la bandera
             # --- FIN NUEVA LÓGICA ---
@@ -295,15 +307,8 @@ while corriendo:
         # --- Detección de Colisión con Leche ---
         colisiones_leche = pygame.sprite.spritecollide(vaca, vasos_de_leche, True, pygame.sprite.collide_mask)
         if colisiones_leche:
-            # ¡El jugador cogió la leche! Aumentar Dificultad
-            VELOCIDAD_TUBERIA += INCREMENTO_VELOCIDAD
-            
-            if FRECUENCIA_TUBERIA > LIMITE_FRECUENCIA:
-                FRECUENCIA_TUBERIA -= DECREMENTO_FRECUENCIA
-            
-            # Opcional: Añadir un sonido de "power-up"
-            # sonido_powerup.play()
-            # print("¡LECHE! Dificultad aumentada.")
+            # ¡El jugador cogió la leche! Sumar al nuevo marcador.
+            puntuacion_leche += 1
         # --- Fin Colisión Leche ---
 
         # Detección de Colisiones
@@ -318,7 +323,13 @@ while corriendo:
         tuberias.draw(pantalla) # Dibuja las tuberías primero
         vasos_de_leche.draw(pantalla)
         todos_los_sprites.draw(pantalla) # Dibuja la vaca encima
-        dibujar_texto(str(puntuacion), fuente, BLANCO, pantalla, ANCHO_PANTALLA // 2, 50, (0,0,0))
+        
+        # Marcador de Tuberías (Izquierda)
+        dibujar_texto(str(puntuacion), fuente, BLANCO, pantalla, ANCHO_PANTALLA // 4, 50, (0,0,0))
+        
+        # Marcador de Leche (Derecha)
+        pantalla.blit(icono_leche_pequeno, (ANCHO_PANTALLA * 0.75 - 15, 40))
+        dibujar_texto(str(puntuacion_leche), fuente, BLANCO, pantalla, ANCHO_PANTALLA * 0.75 + 20, 50, (0,0,0))
 
     
     # Lógica de High Score: Se ejecuta una sola vez al entrar en FIN
@@ -333,6 +344,7 @@ while corriendo:
         y_center = ALTO_PANTALLA // 2
         dibujar_texto("¡Has Perdido!", fuente, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center - 100)
         dibujar_texto(f"Puntuación: {puntuacion}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center - 50)
+        dibujar_texto(f"Leche: {puntuacion_leche}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center - 30) #
         dibujar_texto(f"Récord: {puntuacion_maxima}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center)
         dibujar_texto("Presiona ESPACIO para reiniciar", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center + 50)
 
