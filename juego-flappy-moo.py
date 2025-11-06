@@ -7,6 +7,7 @@ pygame.init()
 pygame.mixer.init() 
 sonido_punto = pygame.mixer.Sound('sonidos/punto.wav')
 sonido_salto = pygame.mixer.Sound('sonidos/salto.wav')
+sonido_leche = pygame.mixer.Sound('sonidos/recompensa.wav')
 
 ANCHO_PANTALLA = 400
 ALTO_PANTALLA = 600
@@ -48,11 +49,12 @@ HUECO_TUBERIA = 150
 # Valores base para reiniciar
 BASE_VELOCIDAD_TUBERIA = 3
 BASE_FRECUENCIA_TUBERIA = 1500
-# Límites y modificadores
-LIMITE_FRECUENCIA = 1000 # La frecuencia no bajará de esto (más rápido)
-INCREMENTO_VELOCIDAD = 0.2  # Cuánto más rápido irá la tubería
-DECREMENTO_FRECUENCIA = 75 # Cuánto más rápido aparecerán las tuberías
+
+# Variables de Dificultad Progresiva
+INCREMENTO_VELOCIDAD = 0.2  # Cuánto más rápido irá la tubería (ej: 0.2 por cada 5 puntos)
+DECREMENTO_FRECUENCIA = 75 # Cuánto más rápido aparecerán las tuberías (en milisegundos)
 PUNTOS_PARA_AUMENTAR = 5   # Aumentar dificultad cada 5 puntos
+LIMITE_FRECUENCIA = 1000   # La frecuencia no bajará de esto (1 segundo)
 
 # Variables mutables del juego (las que cambiarán)
 VELOCIDAD_TUBERIA = BASE_VELOCIDAD_TUBERIA
@@ -191,12 +193,16 @@ def dibujar_texto(texto, fuente, color, superficie, x, y, color_borde=None, offs
 
 
 def reiniciar_juego(): 
-    global puntuacion, ultimo_tiempo_tuberia, ha_guardado_record, VELOCIDAD_TUBERIA, spawn_milk_next
+    global puntuacion, ultimo_tiempo_tuberia, ha_guardado_record, VELOCIDAD_TUBERIA, spawn_milk_next, puntuacion_leche, FRECUENCIA_TUBERIA
     
     puntuacion = 0
     puntuacion_leche = 0 
     ha_guardado_record = False
     spawn_milk_next = False
+
+    VELOCIDAD_TUBERIA = BASE_VELOCIDAD_TUBERIA
+    FRECUENCIA_TUBERIA = BASE_FRECUENCIA_TUBERIA
+
     ultimo_tiempo_tuberia = pygame.time.get_ticks() - FRECUENCIA_TUBERIA
 
     tuberias.empty()
@@ -206,6 +212,36 @@ def reiniciar_juego():
     vaca.rect.center = (100, ALTO_PANTALLA // 2)
     vaca.velocidad = 0
     todos_los_sprites.add(vaca) 
+    
+    VELOCIDAD_TUBERIA = BASE_VELOCIDAD_TUBERIA
+    FRECUENCIA_TUBERIA = BASE_FRECUENCIA_TUBERIA
+
+    INCREMENTO_VELOCIDAD = 0.2  # Aumento de velocidad por etapa
+    DECREMENTO_FRECUENCIA = 100 # Reducción de tiempo (más rápido)
+    PUNTOS_PARA_AUMENTAR = 5    # Etapa de dificultad cada 5 puntos
+    LIMITE_FRECUENCIA = 1000    # No menos de 1 segundo entre tuberías
+
+def aumentar_dificultad():
+    """Aumenta la velocidad y frecuencia de aparición de tuberías."""
+    global VELOCIDAD_TUBERIA, FRECUENCIA_TUBERIA
+    
+    # 1. Aumentar la velocidad (las tuberías se mueven más rápido)
+    VELOCIDAD_TUBERIA += INCREMENTO_VELOCIDAD 
+
+    # 2. Disminuir el tiempo de espera (las tuberías aparecen más seguido)
+    if FRECUENCIA_TUBERIA > LIMITE_FRECUENCIA:
+        FRECUENCIA_TUBERIA -= DECREMENTO_FRECUENCIA
+        if FRECUENCIA_TUBERIA < LIMITE_FRECUENCIA:
+            FRECUENCIA_TUBERIA = LIMITE_FRECUENCIA
+    
+    # 1. Aumentar la velocidad (las tuberías se mueven más rápido)
+    VELOCIDAD_TUBERIA += INCREMENTO_VELOCIDAD 
+
+    # 2. Disminuir el tiempo de espera (las tuberías aparecen más seguido)
+    if FRECUENCIA_TUBERIA > LIMITE_FRECUENCIA:
+        FRECUENCIA_TUBERIA -= DECREMENTO_FRECUENCIA
+        if FRECUENCIA_TUBERIA < LIMITE_FRECUENCIA:
+            FRECUENCIA_TUBERIA = LIMITE_FRECUENCIA
     
 # --- 6. Creación de Sprites Iniciales ---
 todos_los_sprites = pygame.sprite.Group()
@@ -347,7 +383,10 @@ while corriendo:
                     tuberia.pasada = True
                     puntuacion += 1
                     sonido_punto.play()
-
+                    
+                    if puntuacion % PUNTOS_PARA_AUMENTAR == 0 and puntuacion > 0:
+                        aumentar_dificultad()
+                    
                     # --- NUEVA LÓGICA: Preparar Vaso ---
                     # Si la puntuación es 4, 9, 14, etc...
                     if puntuacion % PUNTOS_PARA_AUMENTAR == (PUNTOS_PARA_AUMENTAR - 1): 
@@ -358,8 +397,8 @@ while corriendo:
         # --- Detección de Colisión con Leche ---
         colisiones_leche = pygame.sprite.spritecollide(vaca, vasos_de_leche, True, pygame.sprite.collide_mask)
         if colisiones_leche:
-            # ¡El jugador cogió la leche! Sumar al nuevo marcador.
-            puntuacion_leche += 1
+           sonido_leche.play()
+           puntuacion_leche += 1
         # --- Fin Colisión Leche ---
 
         # Detección de Colisiones
