@@ -68,22 +68,45 @@ estado_juego = "INICIO"
 corriendo = True
 
 # --- 3. HIGH SCORE Funciones y Variables ---
-PUNTUACION_MAXIMA_ARCHIVO = "highscore.txt"
+RECORDS_ARCHIVO = "records.txt" # Cambiamos el nombre del archivo
+MAX_RECORDS = 5
 
-def cargar_puntuacion_maxima():
+def cargar_records():
+    """Carga la lista de records desde el archivo."""
+    records = []
     try:
-        with open(PUNTUACION_MAXIMA_ARCHIVO, 'r') as f:
-            return int(f.read())
-    except (FileNotFoundError, ValueError):
-        return 0
+        with open(RECORDS_ARCHIVO, 'r') as f:
+            for linea in f:
+                try:
+                    records.append(int(linea.strip()))
+                except ValueError:
+                    continue # Ignora líneas mal formadas
+    except FileNotFoundError:
+        pass # El archivo no existe, devuelve lista vacía
+    
+    records.sort(reverse=True) # Asegura que esté ordenado
+    return records[:MAX_RECORDS] # Devuelve solo el Top 5
 
-def guardar_puntuacion_maxima(puntos):
-    with open(PUNTUACION_MAXIMA_ARCHIVO, 'w') as f:
-        f.write(str(puntos))
+def guardar_records(records_lista):
+    """Guarda la lista de records en el archivo."""
+    with open(RECORDS_ARCHIVO, 'w') as f:
+        for score in records_lista:
+            f.write(str(score) + '\n')
 
-puntuacion_maxima = cargar_puntuacion_maxima()
-ha_guardado_record = False 
+def manejar_high_score(nueva_puntuacion):
+    """Añade una nueva puntuación, ordena, y guarda el Top 5."""
+    global lista_records, ha_guardado_record
+    
+    lista_records.append(nueva_puntuacion)
+    lista_records.sort(reverse=True)
+    lista_records = lista_records[:MAX_RECORDS] # Mantiene solo el Top 5
+    
+    guardar_records(lista_records)
+    ha_guardado_record = True
 
+# Cargamos la lista de records al iniciar
+lista_records = cargar_records()
+ha_guardado_record = False
 
 # --- 4. Clases del Juego ---
 
@@ -166,15 +189,6 @@ def dibujar_texto(texto, fuente, color, superficie, x, y, color_borde=None, offs
     rect_texto = objeto_texto.get_rect(center=(x, y))
     superficie.blit(objeto_texto, rect_texto) 
 
-def manejar_high_score():
-    """Gestiona la actualización y guardado de la puntuación máxima."""
-    global puntuacion_maxima, ha_guardado_record
-    
-    if puntuacion > puntuacion_maxima:
-        puntuacion_maxima = puntuacion 
-        guardar_puntuacion_maxima(puntuacion_maxima) 
-    ha_guardado_record = True
-
 
 def reiniciar_juego(): 
     global puntuacion, ultimo_tiempo_tuberia, ha_guardado_record, VELOCIDAD_TUBERIA, spawn_milk_next
@@ -227,6 +241,7 @@ while corriendo:
             corriendo = False
         
         if evento.type == pygame.KEYDOWN:
+            # --- Lógica de ESPACIO ---
             if evento.key == pygame.K_SPACE:
                 if estado_juego == "INICIO":
                     reiniciar_juego() 
@@ -234,6 +249,16 @@ while corriendo:
                 elif estado_juego == "JUGANDO":
                     vaca.saltar() 
                 elif estado_juego == "FIN":
+                    estado_juego = "INICIO" # Vuelve al menú principal
+
+            # --- Lógica de 'R' para RÉCORDS ---
+            elif evento.key == pygame.K_r:
+                if estado_juego == "INICIO" or estado_juego == "FIN":
+                    estado_juego = "RECORDS"
+
+            # --- Lógica de 'ESC' para Volver al MENÚ ---
+            elif evento.key == pygame.K_ESCAPE:
+                if estado_juego == "RECORDS":
                     estado_juego = "INICIO"
 
     
@@ -247,8 +272,34 @@ while corriendo:
         dibujar_texto("Flappy Moo", fuente, BLANCO, pantalla, ANCHO_PANTALLA // 2, 150, (0,0,0))
         dibujar_texto("Presiona ESPACIO", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, 250)
         dibujar_texto("para empezar", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, 280)
-        dibujar_texto(f"Récord: {puntuacion_maxima}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, 350)
-        todos_los_sprites.draw(pantalla) 
+        
+        # --- NUEVA INSTRUCCIÓN ---
+        dibujar_texto("Presiona 'R' para Récords", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, 350)
+        
+        todos_los_sprites.draw(pantalla)
+
+    elif estado_juego == "RECORDS":
+        # Mover estrellas (para que el fondo no se congele)
+        for i in range(len(estrellas)):
+            estrellas[i][0] -= estrellas[i][2]
+            if estrellas[i][0] < 0:
+                estrellas[i][0] = ANCHO_PANTALLA
+                estrellas[i][1] = random.randint(0, ALTO_PANTALLA)
+        
+        # --- ESTE ES EL CÓDIGO DE LA TABLA ---
+        dibujar_texto("Tabla de Récords", fuente, BLANCO, pantalla, ANCHO_PANTALLA // 2, 150, (0,0,0))
+        
+        if not lista_records: # Si la lista está vacía
+            dibujar_texto("¡Juega para un récord!", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, 250)
+        else:
+            y_pos_record = 250 # Ajuste de 'y' para centrarlo más
+            for i, score in enumerate(lista_records):
+                dibujar_texto(f"{i+1}. {score}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_pos_record)
+                y_pos_record += 30 # Siguiente línea
+        # --- FIN CÓDIGO DE LA TABLA ---
+        
+        dibujar_texto("Presiona 'ESC' para volver", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, 450)
+    # --- FIN DEL NUEVO BLOQUE ---
 
     elif estado_juego == "JUGANDO":
         # Lógica de actualización
@@ -334,8 +385,9 @@ while corriendo:
     
     # Lógica de High Score: Se ejecuta una sola vez al entrar en FIN
     if estado_juego == "FIN" and not ha_guardado_record:
-        manejar_high_score()
+       manejar_high_score(puntuacion)
     
+
     elif estado_juego == "FIN":
         # Pantalla de Fin de Juego
         tuberias.draw(pantalla)
@@ -344,9 +396,13 @@ while corriendo:
         y_center = ALTO_PANTALLA // 2
         dibujar_texto("¡Has Perdido!", fuente, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center - 100)
         dibujar_texto(f"Puntuación: {puntuacion}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center - 50)
-        dibujar_texto(f"Leche: {puntuacion_leche}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center - 30) #
-        dibujar_texto(f"Récord: {puntuacion_maxima}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center)
-        dibujar_texto("Presiona ESPACIO para reiniciar", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center + 50)
+        dibujar_texto(f"Leche: {puntuacion_leche}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center - 25)
+
+        # --- LÍNEA MODIFICADA ---
+        mejor_record = lista_records[0] if lista_records else 0
+        dibujar_texto(f"Mejor Récord: {mejor_record}", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center)
+        dibujar_texto("Presiona ESPACIO para Menú", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center + 50)
+        dibujar_texto("Presiona 'R' para Récords", fuente_pequena, BLANCO_HUESO, pantalla, ANCHO_PANTALLA // 2, y_center + 80)
 
     # Actualizar la Pantalla
     pygame.display.flip()
